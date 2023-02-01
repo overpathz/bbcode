@@ -1,11 +1,13 @@
 package com.overpathz.bbhomework.context;
 
+import com.overpathz.bbhomework.context.annotation.Autowired;
 import com.overpathz.bbhomework.context.annotation.Bean;
 import com.overpathz.bbhomework.context.exception.NoSuchBeanException;
 import com.overpathz.bbhomework.context.exception.NoUniqueBeanException;
 import lombok.SneakyThrows;
 import org.reflections.Reflections;
 
+import java.lang.reflect.Field;
 import java.util.*;
 
 import static java.util.stream.Collectors.*;
@@ -18,7 +20,8 @@ public class JavaAnnotationApplicationContext implements ApplicationContext {
 
     public JavaAnnotationApplicationContext(String packageName) {
         this.packageName = packageName;
-        createBeans();
+        initApplicationContext();
+        injectFields();
     }
 
     @Override
@@ -54,9 +57,23 @@ public class JavaAnnotationApplicationContext implements ApplicationContext {
     }
 
     @SneakyThrows
-    private void createBeans() {
+    private void initApplicationContext() {
         for (Class<?> type : getClassesFullNames()) {
             objects.put(resolveBeanName(type), type.getConstructor().newInstance());
+        }
+        injectFields();
+    }
+
+    @SneakyThrows
+    private void injectFields() {
+        for (Object bean : objects.values()) {
+            Class<?> type = bean.getClass();
+            for (Field field : type.getDeclaredFields()) {
+                field.setAccessible(true);
+                if (field.isAnnotationPresent(Autowired.class)) {
+                    field.set(bean, getBean(field.getType()));
+                }
+            }
         }
     }
 
